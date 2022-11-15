@@ -5,7 +5,7 @@ module love::tests {
     use std::string;
 
     #[test_only]
-    use std::option;
+    use std::option::{Self, Option};
 
     #[test_only]
     use sui::coin::{Self, Coin};
@@ -24,6 +24,7 @@ module love::tests {
     
     #[test]
     fun test_create_share_pair_ok() {
+        
         let initiator = @0x003;
         
         let lucky_dog = @0x005;
@@ -31,11 +32,12 @@ module love::tests {
         let name = b"I love you";
         let declaration = b"Love you forever";
         let envelope = b"envelope photo";
+        let envelope_url: Option<vector<u8>> = option::none();
 
         let scenario_val = test_scenario::begin(initiator);
         let scenario = &mut scenario_val;
         
-        create(name, declaration, envelope, scenario);
+        create(name, declaration, envelope, envelope_url, scenario);
 
         test_scenario::next_tx(scenario, initiator);
         check_name_declaration(name, declaration, envelope, scenario);
@@ -64,11 +66,12 @@ module love::tests {
         let name = b"I love you";
         let declaration = b"Love you forever";
         let envelope = b"envelope photo";
+        let envelope_url: Option<vector<u8>> = option::none();
 
         let scenario_val = test_scenario::begin(initiator);
         let scenario = &mut scenario_val;
 
-        create(name, declaration, envelope, scenario);
+        create(name, declaration, envelope, envelope_url, scenario);
 
         test_scenario::next_tx(scenario, initiator);
         check_name_declaration(name, declaration, envelope, scenario);
@@ -95,9 +98,9 @@ module love::tests {
         test_scenario::end(scenario_val);
     }
 
-    fun create(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>, scenario: &mut Scenario) {
+    fun create(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>, envelope_url: Option<vector<u8>>, scenario: &mut Scenario) {
         let ctx = test_scenario::ctx(scenario);
-        romance::create(name, declaration, envelope, ctx);
+        romance::create(name, declaration, envelope, envelope_url, ctx);
     }
 
     fun check_name_declaration(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>, scenario: &mut Scenario) {

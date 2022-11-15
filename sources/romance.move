@@ -15,6 +15,7 @@ module love::romance {
         id: UID,
         name: String,
         envelope: vector<u8>,
+        envelope_url: Option<String>,
         initiator: address, // creator
         declaration: String,    // declaration of love
         mate: Option<address>,  // matched person
@@ -78,7 +79,7 @@ module love::romance {
     }
 
     // Create a new romance contract
-    public entry fun create(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>,ctx: &mut TxContext) {
+    public entry fun create(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>, envelope_url: Option<vector<u8>>, ctx: &mut TxContext) {
 
         let initiator = tx_context::sender(ctx);
 
@@ -89,10 +90,13 @@ module love::romance {
         };
         let msgbox_id = object::id(&msg_box);
 
+        let envelope_url = if (option::is_some<vector<u8>>(&envelope_url)) { option::some(string::utf8(option::extract(&mut envelope_url))) } else { option::none()};
+
         let romance = Romance {
             id: object::new(ctx),
             name: string::utf8(name),
             envelope,
+            envelope_url,
             initiator: initiator,
             declaration: string::utf8(declaration),
             mate: option::none(),
