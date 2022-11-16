@@ -36,7 +36,7 @@ module love::user_tests {
         // create user
         {
             let ctx = test_scenario::ctx(scenario);
-            user::create_user(nickname, birthday, age_group, avatar, option::none(), language, city, country, hobby, bio, ctx);
+            user::create_user_without_avatar_url(nickname, birthday, age_group, avatar, language, city, country, hobby, bio, ctx);
         };
         
         // getter

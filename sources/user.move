@@ -85,6 +85,39 @@ module love::user {
         transfer::transfer(user, tx_context::sender(ctx));
     }
 
+    public entry fun create_user_with_avatar_url(
+        nickname: vector<u8>, 
+        birthday: vector<u8>, 
+        age_group: vector<u8>,
+        avatar: vector<u8>, 
+        avatar_url: vector<u8>, 
+        language: vector<u8>, 
+        city: vector<u8>, 
+        country: vector<u8>, 
+        hobby: vector<u8>,
+        bio: vector<u8>, 
+        ctx: &mut TxContext
+    ) {
+        let avatar_url = option::some(avatar_url);
+        create_user(nickname, birthday, age_group, avatar, avatar_url, language, city, country, hobby, bio, ctx);
+    }
+
+    /// entry fun
+    public entry fun create_user_without_avatar_url(
+        nickname: vector<u8>, 
+        birthday: vector<u8>, 
+        age_group: vector<u8>,
+        avatar: vector<u8>, 
+        language: vector<u8>, 
+        city: vector<u8>, 
+        country: vector<u8>, 
+        hobby: vector<u8>,
+        bio: vector<u8>, 
+        ctx: &mut TxContext
+    ) {
+        create_user(nickname, birthday, age_group, avatar, option::none(), language, city, country, hobby, bio, ctx);
+    }
+
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
         let nickname = string::utf8(new_name);
         user.nickname = nickname
