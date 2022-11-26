@@ -21,7 +21,6 @@ module love::user_tests {
 
         let nickname = b"James";
         let birthday = b"4-28";
-        let age_group = b"18-22";
         let avatar = b"xxxxxxxxxxxx";
         let avatar_url = b"https://www.abc.com";
         let language = b"English";
@@ -36,7 +35,7 @@ module love::user_tests {
         // create user
         {
             let ctx = test_scenario::ctx(scenario);
-            user::create_user_without_avatar_url(nickname, birthday, age_group, avatar, language, city, country, hobby, bio, ctx);
+            user::create_user_without_avatar_url(nickname, birthday, avatar, language, city, country, hobby, bio, ctx);
         };
         
         // getter

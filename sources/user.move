@@ -8,25 +8,26 @@ module love::user {
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
 
-    const Hobby_Travel: vector<u8> = b"travel";
-    const Hobby_Movie: vector<u8> = b"movie";
-    const Hobby_Reading: vector<u8> = b"reading";
-    const Hobby_Fashion: vector<u8> = b"fashion";
-    const Hobby_Tech: vector<u8> = b"tech";
-    const Hobby_Migration: vector<u8> = b"migration";
+    const Ilike_Travel: vector<u8> = b"travel";
+    const Ilike_Movie: vector<u8> = b"movie";
+    const Ilike_Reading: vector<u8> = b"reading";
+    const Ilike_Fashion: vector<u8> = b"fashion";
+    const Ilike_Tech: vector<u8> = b"tech";
+    const Ilike_Migration: vector<u8> = b"migration";
+
+    const love_address: address = @love;
 
     struct User has key {
         id: UID,
         nickname: String,
-        birthday: String,   // only month and day, e.g. 4-8 or 4/8
-        age_group: String,
+        birthday: String,   
         wallet_addr: address,
         avatar: vector<u8>,         // onchain avatar on sui, limit 2m
         avatar_url: Option<String>,    // offchain avatar 
         language: String,
         city: String,
         country: String,
-        hobby: String,
+        ilike: String,
         bio: String,
         created_at: u64,
     }
@@ -35,13 +36,12 @@ module love::user {
     public fun new_user(
         nickname: vector<u8>, 
         birthday: vector<u8>, 
-        age_group: vector<u8>,
         avatar: vector<u8>, 
         avatar_url: Option<vector<u8>>, 
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        hobby: vector<u8>,
+        ilike: vector<u8>,
         bio: vector<u8>, 
         ctx: &mut TxContext): User {
 
@@ -54,68 +54,68 @@ module love::user {
             id: object::new(ctx),
             nickname: string::utf8(nickname),
             birthday: string::utf8(birthday),
-            age_group: string::utf8(age_group),
             wallet_addr,
             avatar,
             avatar_url,
             language: string::utf8(language),
             city: string::utf8(city),
             country: string::utf8(country),
-            hobby: string::utf8(hobby),
+            ilike: string::utf8(ilike),
             bio: string::utf8(bio),
             created_at: tx_context::epoch(ctx)
         }
+    }
+
+    fun init(ctx: &mut TxContext) {
+        let 
     }
 
     /// entry fun
     public entry fun create_user(
         nickname: vector<u8>, 
         birthday: vector<u8>, 
-        age_group: vector<u8>,
         avatar: vector<u8>, 
         avatar_url: Option<vector<u8>>, 
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        hobby: vector<u8>,
+        ilike: vector<u8>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
-        let user = new_user(nickname, birthday, age_group, avatar, avatar_url, language, city, country, hobby, bio, ctx);
+        let user = new_user(nickname, birthday, avatar, avatar_url, language, city, country, ilike, bio, ctx);
         transfer::transfer(user, tx_context::sender(ctx));
     }
 
     public entry fun create_user_with_avatar_url(
         nickname: vector<u8>, 
         birthday: vector<u8>, 
-        age_group: vector<u8>,
         avatar: vector<u8>, 
         avatar_url: vector<u8>, 
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        hobby: vector<u8>,
+        ilike: vector<u8>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
         let avatar_url = option::some(avatar_url);
-        create_user(nickname, birthday, age_group, avatar, avatar_url, language, city, country, hobby, bio, ctx);
+        create_user(nickname, birthday, avatar, avatar_url, language, city, country, ilike, bio, ctx);
     }
 
     /// entry fun
     public entry fun create_user_without_avatar_url(
         nickname: vector<u8>, 
         birthday: vector<u8>, 
-        age_group: vector<u8>,
         avatar: vector<u8>, 
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        hobby: vector<u8>,
+        ilike: vector<u8>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
-        create_user(nickname, birthday, age_group, avatar, option::none(), language, city, country, hobby, bio, ctx);
+        create_user(nickname, birthday, avatar, option::none(), language, city, country, ilike, bio, ctx);
     }
 
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
@@ -163,19 +163,14 @@ module love::user {
         user.country = country;
     }
 
-    public entry fun update_user_hobby(user: &mut User, new_hobby: vector<u8>) {
-        let hobby = string::utf8(new_hobby);
-        user.hobby = hobby;
+    public entry fun update_user_ilike(user: &mut User, new_ilike: vector<u8>) {
+        let ilike = string::utf8(new_ilike);
+        user.ilike = ilike;
     }
 
     public entry fun update_user_bio(user: &mut User, new_bio: vector<u8>) {
         let bio = string::utf8(new_bio);
         user.bio = bio;
-    }
-
-    public entry fun update_user_age_group(user: &mut User, new_age_group: vector<u8>) {
-        let age_group = string::utf8(new_age_group);
-        user.age_group = age_group;
     }
 
     public entry fun transfer_user(user: User, to: address) {
@@ -194,10 +189,6 @@ module love::user {
 
     public fun wallet_addr(user: &User): address {
         user.wallet_addr
-    }
-
-    public fun age_group(user: &User): String {
-        user.age_group
     }
 
     public fun avatar(user: &User): vector<u8> {
@@ -220,8 +211,8 @@ module love::user {
         user.country
     }
 
-    public fun hobby(user: &User): String {
-        user.hobby
+    public fun ilike(user: &User): String {
+        user.ilike
     }
 
     public fun bio(user: &User): String {
