@@ -20,7 +20,7 @@ module love::tests {
     use sui::test_scenario::{Self, Scenario};
 
     #[test_only]
-    use love::romance::{Self, Romance, MessageBox};
+    use love::romance::{Self, Romance};
     
     #[test]
     fun test_create_share_pair_ok() {
@@ -39,12 +39,12 @@ module love::tests {
         
         create(name, declaration, envelope, envelope_url, scenario);
 
-        test_scenario::next_tx(scenario, initiator);
-        check_name_declaration(name, declaration, envelope, scenario);
+        // test_scenario::next_tx(scenario, initiator);
+        // check_name_declaration(name, declaration, envelope, scenario);
 
         // share the romance
-        test_scenario::next_tx(scenario, initiator);
-        share_romance(scenario);
+        // test_scenario::next_tx(scenario, initiator);
+        // share_romance(scenario);
 
         // user pair the romance and check the romance after share
         test_scenario::next_tx(scenario, lucky_dog);
@@ -73,12 +73,12 @@ module love::tests {
 
         create(name, declaration, envelope, envelope_url, scenario);
 
-        test_scenario::next_tx(scenario, initiator);
-        check_name_declaration(name, declaration, envelope, scenario);
+        // test_scenario::next_tx(scenario, initiator);
+        // check_name_declaration(name, declaration, envelope, scenario);
 
         // share the romance
-        test_scenario::next_tx(scenario, initiator);
-        share_romance(scenario);
+        // test_scenario::next_tx(scenario, initiator);
+        // share_romance(scenario);
 
         // pair romance
         test_scenario::next_tx(scenario, lucky_dog);
@@ -113,11 +113,11 @@ module love::tests {
         test_scenario::return_to_sender(scenario, romance);
     }
 
-    fun share_romance(scenario: &mut Scenario) {
-        let romance = test_scenario::take_from_sender<Romance>(scenario);
-        let msg_box = test_scenario::take_from_sender<MessageBox>(scenario);
-        romance::share(romance, msg_box);
-    }
+    // fun share_romance(scenario: &mut Scenario) {
+    //     let romance = test_scenario::take_from_sender<Romance>(scenario);
+    //     let msg_box = test_scenario::take_from_sender<MessageBox>(scenario);
+    //     romance::share(romance, msg_box);
+    // }
     
     fun pair_romance(scenario: &mut Scenario) {
         let romance = test_scenario::take_shared<Romance>(scenario);

@@ -105,16 +105,20 @@ module love::romance {
             pair_time: option::none(),
         };
 
-        transfer::transfer(romance, initiator);
-        transfer::transfer(msg_box, initiator);
-    }
-
-    // the romance owner share this romance
-    public entry fun share(romance: Romance, msg_box: MessageBox) {
+        // transfer::transfer(romance, initiator);
+        // transfer::transfer(msg_box, initiator);
+        // Share a object must in create object transaction
         romance.is_share = true;
         transfer::share_object(romance);
         transfer::share_object(msg_box);
     }
+
+    // the romance owner share this romance
+    // public entry fun share(romance: Romance, msg_box: MessageBox) {
+    //     romance.is_share = true;
+    //     transfer::share_object(romance);
+    //     transfer::share_object(msg_box);
+    // }
 
     // another person pair the romance, if the romance doesn't already pair or not the owner
     public entry fun pair(romance: &mut Romance, ctx: &mut TxContext) {

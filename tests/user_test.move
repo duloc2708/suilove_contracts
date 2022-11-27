@@ -23,6 +23,7 @@ module love::user_tests {
         let birthday = b"4-28";
         let avatar = b"xxxxxxxxxxxx";
         let avatar_url = b"https://www.abc.com";
+        let gender = b"male";
         let language = b"English";
         let city = b"Chicago";
         let country = b"USA";
@@ -35,7 +36,7 @@ module love::user_tests {
         // create user
         {
             let ctx = test_scenario::ctx(scenario);
-            user::create_user_without_avatar_url(nickname, birthday, avatar, language, city, country, hobby, bio, ctx);
+            user::create_user_without_avatar_url(nickname, birthday, avatar, gender, language, city, country, hobby, bio, ctx);
         };
         
         // getter
