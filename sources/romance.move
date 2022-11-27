@@ -5,60 +5,122 @@ module love::romance {
     use std::option::{Self, Option};
     use std::string::{Self, String};
     use sui::tx_context::{Self, TxContext};
-    use sui::coin::Coin;
+    use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     use sui::transfer;
-    use sui::vec_map;
-    use sui::vec_set;
+    use sui::event::emit;
+
+    use sui::dynamic_object_field as dof;
+
+    const Item_Type_Photo: vector<u8> = b"photo";
+    const Item_Type_Text: vector<u8> = b"text";
 
     struct Romance has key, store {
         id: UID,
         name: String,
         envelope: vector<u8>,
         envelope_url: Option<String>,
-        initiator: address, // creator
+        creator: address, // creator
         declaration: String,    // declaration of love
-        mate: Option<address>,  // matched person
-        msgbox_id: ID,
-        is_share: bool,
-        pair_time: Option<u64>,
+        mate: address,  // another person
+        is_paired: bool,
+        created_at: u64,
+    }
+    
+    struct RomanceInfo has key, store {
+        id: UID,
+        romance_id: ID,
+        name: String,
+        declaration: String,
+        creator: address,
     }
 
-    struct Message has key, store {
+    struct RomanceRegistry has key, store  {
+        id: UID
+    }
+
+    struct RomanceMangerCap has key, store {
+        id: UID
+    }
+
+    struct RomanceItem<Item> has key, store {
         id: UID,
-        msg: String,
+        item: Item,
         from: address,
         to: address,
         created_at: u64,
     }
 
-    struct MessageBox has key {
+    struct RomancePairRequestMsg has key, store {
         id: UID,
-        belongs: vec_set::VecSet<address>,  // the messge box belongs the initiator and mate, only the two can put messge 
-        messages: vec_map::VecMap<ID, Message>,
+        romance_id: ID,
+        name: String,
+        declaration: String,
+        creator: address,
+        created_at: u64, 
+    }
+
+    struct Message has key, store {
+        id: UID,
+        content: vector<u8>,
+        type: String,
+        from: address,
+        to: address,
+        created_at: u64,
+    }
+
+    struct MessageItem has store, copy, drop {
+        msg_id: ID,
+        content: vector<u8>,
+        type: String,
+    }
+
+    struct RedPackItem has store, copy, drop {
+        redpack_id: ID,
+        value: u64,
+    }
+
+    // ------------------- Events --------------------// 
+    /// Event for the Romance platform created
+    struct RegistryCreatedEvent has copy, drop { registry_id: ID }
+
+    /// Event for the Romance created
+    struct RomanceCreatedEvent has copy, drop { 
+        romance_id: ID,
+        name: String, 
+        declaration: String,
+        creator: address,
+        created_at: u64,
+    }
+
+    /// Event for the Romance pair success
+    struct RomancePairSuccessEvent has copy, drop {
+        romance_id: ID,
+        creator: address,
+        mate: address,
     }
 
     // Romance already paired
     const EAREADLY_PAIRED: u64 = 0;
 
-    const ENOT_INITIATOR_OR_LUCKEY_DOG: u64 = 1;
+    const ENOT_ROMANCE_MEMBER: u64 = 1;
 
-    const ECANT_PAIR_SELF: u64 = 2;
+    const EONLY_MATE_CAN_PAIR: u64 = 2;
 
     // Getters
     public fun name(romance: &Romance): String {
         romance.name
     }
 
-    public fun initiator(romance: &Romance): address {
-        romance.initiator
+    public fun creator(romance: &Romance): address {
+        romance.creator
     }
 
     public fun declaration(romance: &Romance): String {
         romance.declaration
     }
 
-    public fun mate(romance: &Romance): Option<address> {
+    public fun mate(romance: &Romance): address {
         romance.mate
     }
 
@@ -66,118 +128,230 @@ module love::romance {
         romance.envelope
     }
 
-    public fun is_initiator(romance_ref: &Romance, sender: address): bool {
-        initiator(romance_ref) == sender
+    public fun is_creator(romance_ref: &Romance, addr: address): bool {
+        creator(romance_ref) == addr
     }
 
-    public fun is_mate(romance_ref: &Romance, sender: address): bool {
-        option::borrow(&mate(romance_ref)) == &sender
+    public fun is_mate(romance_ref: &Romance, addr: address): bool {
+        mate(romance_ref) == addr
     }
 
-    public fun is_share(romance_ref: &Romance): bool {
-        romance_ref.is_share
+    public fun is_paired(romance_ref: &Romance): bool {
+        romance_ref.is_paired
+    }
+
+    /// init function for module
+    /// Create a shared Registry and give its creator the capability to manage the platform
+    fun init(ctx: &mut TxContext) {
+        // let id = object::new(ctx);
+        
+        // emit(RegistryCreatedEvent { registry_id: object::uid_to_inner(&id)});
+        
+        
+        // transfer::share_object(RomanceRegistry {
+        //     id,
+        // });
+        new_cap(ctx);
+        new_registry(ctx);
+
+    }
+
+    fun new_cap(ctx: &mut TxContext) {
+        transfer::transfer(RomanceMangerCap { id: object::new(ctx) }, tx_context::sender(ctx));
+    }
+
+    fun new_registry(ctx: &mut TxContext) {
+        let id = object::new(ctx);
+        
+        emit(RegistryCreatedEvent { registry_id: object::uid_to_inner(&id)});
+        
+        
+        transfer::share_object(RomanceRegistry {
+            id,
+        });
     }
 
     // Create a new romance contract
-    public entry fun create(name: vector<u8>, declaration: vector<u8>, envelope: vector<u8>, envelope_url: Option<vector<u8>>, ctx: &mut TxContext) {
+    public entry fun create_romance(
+        reg: &mut RomanceRegistry, 
+        name: vector<u8>, 
+        declaration: vector<u8>, 
+        envelope: vector<u8>, 
+        envelope_url: Option<vector<u8>>, 
+        mate: address,
+        ctx: &mut TxContext) {
 
-        let initiator = tx_context::sender(ctx);
+        let creator = tx_context::sender(ctx);
 
-        let msg_box = MessageBox {
-            id: object::new(ctx),
-            belongs: vec_set::empty<address>(),
-            messages: vec_map::empty<ID, Message>(),
-        };
-        let msgbox_id = object::id(&msg_box);
+        let envelope_url = if (option::is_some<vector<u8>>(&envelope_url)) { 
+            option::some(string::utf8(option::extract(&mut envelope_url))) 
+        } else { option::none()};
 
-        let envelope_url = if (option::is_some<vector<u8>>(&envelope_url)) { option::some(string::utf8(option::extract(&mut envelope_url))) } else { option::none()};
+        let romance_id = object::new(ctx);
+        let romance_inner_id = object::uid_to_inner(&romance_id);
+
+        let name = string::utf8(name);
+        let declaration = string::utf8(declaration);
+        let created_at = tx_context::epoch(ctx);
 
         let romance = Romance {
-            id: object::new(ctx),
-            name: string::utf8(name),
+            id: romance_id,
+            name,
             envelope,
             envelope_url,
-            initiator: initiator,
-            declaration: string::utf8(declaration),
-            mate: option::none(),
-            msgbox_id,
-            is_share: false,
-            pair_time: option::none(),
+            creator,
+            declaration,
+            mate,
+            is_paired: false,
+            created_at,
         };
 
-        // transfer::transfer(romance, initiator);
-        // transfer::transfer(msg_box, initiator);
-        // Share a object must in create object transaction
-        romance.is_share = true;
-        transfer::share_object(romance);
-        transfer::share_object(msg_box);
-    }
+        emit(RomanceCreatedEvent {
+            romance_id: romance_inner_id,
+            name, 
+            declaration,
+            creator,
+            created_at, 
+        });
 
-    // the romance owner share this romance
-    // public entry fun share(romance: Romance, msg_box: MessageBox) {
-    //     romance.is_share = true;
-    //     transfer::share_object(romance);
-    //     transfer::share_object(msg_box);
-    // }
+        // notify the mate to pair
+        transfer::transfer(RomancePairRequestMsg {
+            id: object::new(ctx),
+            romance_id: romance_inner_id,
+            name,
+            declaration,
+            creator,
+            created_at, 
+        }, mate);
+
+        let romance_id = RomanceInfo { 
+            id: object::new(ctx), 
+            romance_id: romance_inner_id,
+            name,
+            declaration,
+            creator,
+        };
+
+        dof::add(&mut reg.id, romance_inner_id, romance_id);
+
+        transfer::share_object(romance);
+    }
 
     // another person pair the romance, if the romance doesn't already pair or not the owner
     public entry fun pair(romance: &mut Romance, ctx: &mut TxContext) {
-        let mate = tx_context::sender(ctx);
+        let sender = tx_context::sender(ctx);
+        
+        // assert!(!is_mate(romance, sender), EONLY_MATE_CAN_PAIR);
+        if (is_mate(romance, sender)) {
+            romance.is_paired = true;
 
-        assert!(!is_initiator(romance, mate), ECANT_PAIR_SELF);
-        assert!(option::is_none(&romance.mate), EAREADLY_PAIRED);
-
-        let now = tx_context::epoch(ctx);
-        option::fill(&mut romance.mate, mate);
-        option::fill(&mut romance.pair_time, now);
+            emit(RomancePairSuccessEvent {
+                romance_id: object::id(romance),
+                creator: romance.creator,
+                mate: sender,
+            });
+        }        
     }
 
     /// send a message to another
-    public entry fun send_message(romance_ref: &Romance, msg_box: &mut MessageBox, msg: vector<u8>, ctx: &mut TxContext) {
+    public entry fun send_message(romance_ref: &mut Romance, content: vector<u8>, type: vector<u8>, is_record: bool, ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         
 
         let to = get_romance_recipient(romance_ref, sender);
-
+        let type = format_item_type(type);
+        let created_at = tx_context::epoch(ctx);
         let msg = Message {
             id: object::new(ctx),
-            msg: string::utf8(msg),
+            content,
+            type,
             from: sender,
             to,
-            created_at: tx_context::epoch(ctx)
+            created_at,
         };
 
-        let msg_id = object::id(&msg);
-        vec_map::insert(&mut msg_box.messages, msg_id, msg);
+        if (is_record) {
+            let msg_id = object::id(&msg);
+            let item = MessageItem {
+                msg_id,
+                content,
+                type,
+            };
+
+            dof::add(&mut romance_ref.id, msg_id, RomanceItem {
+                id: object::new(ctx),
+                item,
+                from: sender,
+                to,
+                created_at
+            });
+        };
+
+        transfer::transfer(msg, to);
     }
 
     /// Send redpack
-    public entry fun send_redpack(romance_ref: &mut Romance, coin: Coin<SUI>, ctx: &mut TxContext) {
+    public entry fun send_redpack(romance_ref: &mut Romance, redpack: Coin<SUI>, is_record: bool, ctx: &mut TxContext) {
         let sender = tx_context::sender(ctx);
         
 
-        let is_initiator = is_initiator(romance_ref, sender);
+        let is_creator = is_creator(romance_ref, sender);
         let is_mate = is_mate(romance_ref, sender);
 
-        assert!(is_initiator|| is_mate, ENOT_INITIATOR_OR_LUCKEY_DOG);
+        assert!(is_creator|| is_mate, ENOT_ROMANCE_MEMBER);
 
         let to = get_romance_recipient(romance_ref, sender);
+        let redpack_value = coin::value(&redpack);
+        let created_at = tx_context::epoch(ctx);
 
-        transfer::transfer(coin, to);
+        if (is_record) {
+            let redpack_id = object::id(&redpack);
+            let item = RedPackItem {
+                redpack_id,
+                value: redpack_value,
+            };
+
+            dof::add(&mut romance_ref.id, redpack_id, RomanceItem {
+                id: object::new(ctx),
+                item,
+                from: sender,
+                to,
+                created_at,
+            });
+        };
+
+        transfer::transfer(redpack, to);
     }
 
     fun get_romance_recipient(romance_ref: &Romance, sender: address): address {
-        let is_initiator = is_initiator(romance_ref, sender);
+        let is_creator = is_creator(romance_ref, sender);
         let is_mate = is_mate(romance_ref, sender);
 
-        assert!(is_initiator|| is_mate, ENOT_INITIATOR_OR_LUCKEY_DOG);
+        assert!(is_creator|| is_mate, ENOT_ROMANCE_MEMBER);
 
-        if (is_initiator) {
-            *option::borrow(&romance_ref.mate)
+        if (is_creator) {
+            mate(romance_ref)
         } else {
-            initiator(romance_ref)
+            creator(romance_ref)
         }
 
     }
+
+    fun format_item_type(type: vector<u8>): String {
+        let type = if (&type == &Item_Type_Photo) {
+            type
+        } else {
+            Item_Type_Text
+        };
+
+        string::utf8(type)
+    }
+
+    #[test_only] 
+    public fun test_init(ctx: &mut TxContext) {
+        new_cap(ctx);
+        new_registry(ctx)
+    }
+
 }
 

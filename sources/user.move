@@ -73,9 +73,6 @@ module love::user {
         }
     }
 
-    // fun init(ctx: &mut TxContext) {
-    //     let 
-    // }
 
     /// entry fun
     public entry fun create_user(
