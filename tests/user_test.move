@@ -3,6 +3,7 @@ module love::user_tests {
     
     #[test_only]
     use std::string::{Self, String};
+    use std::vector;
 
     #[test_only]
     use std::option::{Self};
@@ -11,7 +12,7 @@ module love::user_tests {
     use sui::test_scenario::{Self};
 
     #[test_only]
-    use love::user::{Self, User};
+    use love::user::{Self, User, vector_string};
 
     #[test]
     fun test_user_create_update_ok() {
@@ -27,8 +28,9 @@ module love::user_tests {
         let language = b"English";
         let city = b"Chicago";
         let country = b"USA";
-        let hobby = b"tech";
+        let hobby = vector::singleton(b"tech");
         let bio = b"Move";
+        let ilike2 = vector::singleton(b"nba");
 
         let scenario_val = test_scenario::begin(user_addr);
         let scenario = &mut scenario_val;
@@ -47,6 +49,7 @@ module love::user_tests {
             assert!(user::bio(&u) == stringify(bio), 0);
             assert!(user::avatar(&u) == avatar, 0);
             assert!(option::is_none(&user::avatar_url(&u)), 0);
+            assert!(user::ilike(&u) == vector_string(hobby), 0);
 
             test_scenario::return_to_sender(scenario, u);
         };
@@ -57,6 +60,7 @@ module love::user_tests {
             let u = test_scenario::take_from_sender<User>(scenario);
             let u_ref = &mut u;
             user::update_user_avatar_url(u_ref, avatar_url);
+            user::update_user_ilike(u_ref, ilike2);
             test_scenario::return_to_sender(scenario, u);
         };
 
@@ -66,6 +70,7 @@ module love::user_tests {
             let u = test_scenario::take_from_sender<User>(scenario);
             assert!(option::is_some(&user::avatar_url(&u)), 0);
             assert!(option::contains(&user::avatar_url(&u), &stringify(avatar_url)), 0);
+            assert!(user::ilike(&u) == vector_string(ilike2), 0);
             test_scenario::return_to_sender(scenario, u);
         };
 

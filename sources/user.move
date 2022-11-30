@@ -4,6 +4,7 @@ module love::user {
     
     use sui::object::{Self, UID};
     use std::option::{Self, Option};
+    use std::vector;
     use std::string::{Self, String};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -19,7 +20,7 @@ module love::user {
 
     const Gender_Male: vector<u8> = b"male";
     const Gender_Female: vector<u8> = b"female";
-    const Gender_Unknown: vector<u8> = b"unknown";
+    const Gender_Unknown: vector<u8> = b"secrecy";
 
     struct User has key {
         id: UID,
@@ -32,7 +33,7 @@ module love::user {
         language: String,
         city: String,
         country: String,
-        ilike: String,
+        ilike: vector<String>,
         bio: String,
         created_at: u64,
     }
@@ -47,7 +48,7 @@ module love::user {
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        ilike: vector<u8>,
+        ilike: vector<vector<u8>>,
         bio: vector<u8>, 
         ctx: &mut TxContext): User {
 
@@ -55,6 +56,17 @@ module love::user {
         let avatar_url = if (option::is_some(&avatar_url)) { 
             option::some<String>(string::utf8(option::extract(&mut avatar_url))) 
         } else { option::none() };
+
+        let ilikes = vector_string(ilike);
+
+        // let idx = 0;
+        // let len = vector::length<vector<u8>>(&ilike);
+        // while (idx < len) {
+        //     vector::reverse(&mut ilike);
+
+        //     vector::push_back(&mut ilikes, string::utf8(vector::pop_back(&mut ilike)));
+        //     idx = idx + 1;
+        // };
 
         User {
             id: object::new(ctx),
@@ -67,7 +79,7 @@ module love::user {
             language: string::utf8(language),
             city: string::utf8(city),
             country: string::utf8(country),
-            ilike: string::utf8(ilike),
+            ilike: ilikes,
             bio: string::utf8(bio),
             created_at: tx_context::epoch(ctx)
         }
@@ -84,7 +96,7 @@ module love::user {
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        ilike: vector<u8>,
+        ilike: vector<vector<u8>>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
@@ -101,7 +113,7 @@ module love::user {
         language: vector<u8>, 
         city: vector<u8>, 
         country: vector<u8>, 
-        ilike: vector<u8>,
+        ilike: vector<vector<u8>>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
@@ -118,7 +130,7 @@ module love::user {
         gender: vector<u8>,
         city: vector<u8>, 
         country: vector<u8>, 
-        ilike: vector<u8>,
+        ilike: vector<vector<u8>>,
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
@@ -170,8 +182,8 @@ module love::user {
         user.country = country;
     }
 
-    public entry fun update_user_ilike(user: &mut User, new_ilike: vector<u8>) {
-        let ilike = string::utf8(new_ilike);
+    public entry fun update_user_ilike(user: &mut User, new_ilike: vector<vector<u8>>,) {
+        let ilike = vector_string(new_ilike);
         user.ilike = ilike;
     }
 
@@ -218,7 +230,7 @@ module love::user {
         user.country
     }
 
-    public fun ilike(user: &User): String {
+    public fun ilike(user: &User): vector<String> {
         user.ilike
     }
 
@@ -228,6 +240,21 @@ module love::user {
 
     public fun created_at(user: &User): u64 {
         user.created_at
+    }
+
+    public fun vector_string(vs: vector<vector<u8>>): vector<String> {
+        let vss = vector::empty<String>();
+
+        let idx = 0;
+        let len = vector::length<vector<u8>>(&vs);
+        while (idx < len) {
+            vector::reverse(&mut vs);
+
+            vector::push_back(&mut vss, string::utf8(vector::pop_back(&mut vs)));
+            idx = idx + 1;
+        };
+
+        vss
     }
 
 }

@@ -39,7 +39,7 @@ module love::romance {
         id: UID
     }
 
-    struct RomanceMangerCap has key, store {
+    struct RomanceManagerCap has key, store {
         id: UID
     }
 
@@ -157,7 +157,7 @@ module love::romance {
     }
 
     fun new_cap(ctx: &mut TxContext) {
-        transfer::transfer(RomanceMangerCap { id: object::new(ctx) }, tx_context::sender(ctx));
+        transfer::transfer(RomanceManagerCap { id: object::new(ctx) }, tx_context::sender(ctx));
     }
 
     fun new_registry(ctx: &mut TxContext) {
