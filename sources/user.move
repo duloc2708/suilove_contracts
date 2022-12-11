@@ -2,13 +2,17 @@
 //! registered user in platform
 module love::user {
     
-    use sui::object::{Self, UID};
+
+    use sui::event::emit;
+    use sui::object::{Self, ID, UID};
     use std::option::{Self, Option};
     use std::vector;
     use std::string::{Self, String};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
+    use sui::table::{Self, Table};
 
+    // constants
     const Ilike_Travel: vector<u8> = b"travel";
     const Ilike_Movie: vector<u8> = b"movie";
     const Ilike_Reading: vector<u8> = b"reading";
@@ -22,6 +26,7 @@ module love::user {
     const Gender_Female: vector<u8> = b"female";
     const Gender_Unknown: vector<u8> = b"secrecy";
 
+    // Resources
     struct User has key {
         id: UID,
         nickname: String,
@@ -37,7 +42,42 @@ module love::user {
         bio: String,
         created_at: u64,
     }
+    
+    // Platform has a share object: UserGlobalState, contains registered users, block list of users.
+    // User will add to the global state when a user registered.
+    struct UserGlobalState has key {
+        id: UID,
+        registers: Table<address, RegisteredUser>,
+        blocklists: Table<address, Table<u256, address>>    // 
+    }
 
+    struct RegisteredUser has key, store {
+        id: UID,
+        user_id: ID,
+        wallet_addr: address,
+        created_at: u64,
+    }
+
+    struct UserRegisteredEvent has copy, drop {
+        user_id: ID,
+        wallet_addr: address,
+        created_at: u64,
+    }
+    
+    // Errors
+    const EALREADY_EXISTS: u64 = 0;
+
+    fun init(ctx: &mut TxContext) {
+        init_global_state(ctx);
+    }
+
+    fun init_global_state(ctx: &mut TxContext) { 
+        transfer::share_object(UserGlobalState {
+            id: object::new(ctx),
+            registers: table::new(ctx),
+            blocklists: table::new(ctx),
+        })
+    }
 
     public fun new_user(
         nickname: vector<u8>, 
@@ -88,6 +128,7 @@ module love::user {
 
     /// entry fun
     public entry fun create_user(
+        state: &mut UserGlobalState,
         nickname: vector<u8>, 
         age: u8, 
         avatar: vector<u8>, 
@@ -101,10 +142,26 @@ module love::user {
         ctx: &mut TxContext
     ) {
         let user = new_user(nickname, age, avatar, avatar_url, gender, language, city, country, ilike, bio, ctx);
+        let wallet_addr = tx_context::sender(ctx);
+        let created_at = tx_context::epoch(ctx);
+
+        assert!(!table::contains(&state.registers, wallet_addr), EALREADY_EXISTS);
+
+        transfer::transfer( RegisteredUser {
+            id: object::new(ctx),
+            user_id: object::id(&user),
+            wallet_addr,
+            created_at,
+        }, Love_Address);
+
+        emit(UserRegisteredEvent { user_id: object::id(&user), wallet_addr, created_at });
+
         transfer::transfer(user, tx_context::sender(ctx));
+
     }
 
     public entry fun create_user_with_avatar_url(
+        state: &mut UserGlobalState,
         nickname: vector<u8>, 
         age: u8, 
         avatar: vector<u8>, 
@@ -118,11 +175,12 @@ module love::user {
         ctx: &mut TxContext
     ) {
         let avatar_url = option::some(avatar_url);
-        create_user(nickname, age, avatar, avatar_url, gender,language, city, country, ilike, bio, ctx);
+        create_user(state, nickname, age, avatar, avatar_url, gender,language, city, country, ilike, bio, ctx);
     }
 
     /// entry fun
     public entry fun create_user_without_avatar_url(
+        state: &mut UserGlobalState,
         nickname: vector<u8>, 
         age: u8, 
         avatar: vector<u8>, 
@@ -134,7 +192,7 @@ module love::user {
         bio: vector<u8>, 
         ctx: &mut TxContext
     ) {
-        create_user(nickname, age, avatar, option::none(), gender, language, city, country, ilike, bio, ctx);
+        create_user(state, nickname, age, avatar, option::none(), gender, language, city, country, ilike, bio, ctx);
     }
 
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
@@ -255,6 +313,11 @@ module love::user {
         };
 
         vss
+    }
+
+    #[test_only]
+    public fun init_test(ctx: &mut TxContext) {
+        init_global_state(ctx);
     }
 
 }

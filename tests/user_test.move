@@ -12,7 +12,7 @@ module love::user_tests {
     use sui::test_scenario::{Self};
 
     #[test_only]
-    use love::user::{Self, User, vector_string};
+    use love::user::{Self,User, UserGlobalState, vector_string, init_test};
 
     #[test]
     fun test_user_create_update_ok() {
@@ -38,7 +38,16 @@ module love::user_tests {
         // create user
         {
             let ctx = test_scenario::ctx(scenario);
-            user::create_user_without_avatar_url(nickname, age, avatar, gender, language, city, country, hobby, bio, ctx);
+            init_test(ctx);
+        };
+
+        test_scenario::next_tx(scenario, user_addr);
+        {
+            let state = test_scenario::take_shared<UserGlobalState>(scenario);
+            let ctx = test_scenario::ctx(scenario);
+        
+            user::create_user_without_avatar_url(&mut state, nickname, age, avatar, gender, language, city, country, hobby, bio, ctx);
+            test_scenario::return_shared(state);
         };
         
         // getter
