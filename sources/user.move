@@ -43,6 +43,25 @@ module love::user {
         created_at: u64,
     }
     
+    struct Friend has store, copy, drop{
+        user_id: ID,
+        name: String,
+        wallet_addr: String,
+        avatar: vector<u8>,         // onchain avatar on sui, limit 2m
+        avatar_url: Option<String>,    // offchain avatar 
+        created_at: u64,
+    }
+
+    struct FriendTable has key, store {
+        id: UID,
+        friends: Table<address, Friend>,
+    }
+
+    struct BlacklistTable has key, store {
+        id: UID,
+        lists: Table<address, u64>,
+    }
+
     // Platform has a share object: UserGlobalState, contains registered users, block list of users.
     // User will add to the global state when a user registered.
     struct UserGlobalState has key {
@@ -72,6 +91,11 @@ module love::user {
     }
 
     fun init_global_state(ctx: &mut TxContext) { 
+        transfer::transfer(FriendTable {
+            id: object::new(ctx),
+            friends: table::new(ctx),
+        }, tx_context::sender(ctx));
+
         transfer::share_object(UserGlobalState {
             id: object::new(ctx),
             registers: table::new(ctx),
