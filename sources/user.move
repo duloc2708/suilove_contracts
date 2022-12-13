@@ -43,18 +43,19 @@ module love::user {
         created_at: u64,
     }
     
-    struct Friend has store, copy, drop{
+    struct Friendship has store, copy, drop{
         user_id: ID,
         name: String,
-        wallet_addr: String,
+        wallet_addr: address,
         avatar: vector<u8>,         // onchain avatar on sui, limit 2m
         avatar_url: Option<String>,    // offchain avatar 
         created_at: u64,
     }
 
-    struct FriendTable has key, store {
+    struct FriendshipTable has key, store {
         id: UID,
-        friends: Table<address, Friend>,
+        friendships: Table<address, Friendship>,
+        count: u64,
     }
 
     struct BlacklistTable has key, store {
@@ -62,7 +63,7 @@ module love::user {
         lists: Table<address, u64>,
     }
 
-    struct FriendMangerCap has key, store {
+    struct FriendshipMangerCap has key, store {
         id: UID,
         owner_addr: address,
     }
@@ -100,10 +101,11 @@ module love::user {
     }
 
     fun init_global_state(ctx: &mut TxContext) { 
-        transfer::transfer(FriendTable {
-            id: object::new(ctx),
-            friends: table::new(ctx),
-        }, tx_context::sender(ctx));
+        // transfer::transfer(FriendshipTable {
+        //     id: object::new(ctx),
+        //     friendships: table::new(ctx),
+        //     count: 0,
+        // }, tx_context::sender(ctx));
 
         transfer::share_object(UserGlobalState {
             id: object::new(ctx),
@@ -190,14 +192,15 @@ module love::user {
             created_at,
         });
 
-        // create friends table
-        let friend_table = FriendTable {
+        // create friendShips table
+        let friendship_table = FriendshipTable {
             id: object::new(ctx),
-            friends: table::new(ctx),
+            friendships: table::new(ctx),
+            count: 0,
         };
 
-        transfer::transfer(friend_table, wallet_addr);
-        transfer::transfer(FriendMangerCap { id: object::new(ctx), owner_addr: wallet_addr }, wallet_addr);
+        transfer::transfer(friendship_table, wallet_addr);
+        transfer::transfer(FriendshipMangerCap { id: object::new(ctx), owner_addr: wallet_addr }, wallet_addr);
 
         // create a blacklist table
         let blacklist_table = BlacklistTable {
@@ -247,7 +250,46 @@ module love::user {
         create_user(state, nickname, age, avatar, option::none(), gender, language, city, country, ilike, bio, ctx);
     }
 
-    
+    // add friendship
+    public entry fun add_friendship(
+        friendship_table: &mut FriendshipTable, 
+        user_id: ID,
+        name: String,
+        wallet_addr: address, 
+        avatar: vector<u8>,
+        avatar_url: Option<String>,
+        ctx: &mut TxContext) {
+
+        let friendship = Friendship {
+            user_id,
+            name,
+            wallet_addr,
+            avatar,
+            avatar_url,
+            created_at: tx_context::epoch(ctx),
+        };
+
+        friendship_table.count = friendship_table.count + 1;
+        table::add(&mut friendship_table.friendships, wallet_addr, friendship);
+
+    }
+
+    // remove friendship
+    public entry fun remove_friendship(
+        friendship_table: &mut FriendshipTable, 
+        friendship_addr: address,
+    ) {
+        table::remove(&mut friendship_table.friendships, friendship_addr);
+        friendship_table.count = friendship_table.count - 1;
+    }
+
+    public fun get_friendship_count(fs_table: &FriendshipTable): u64 {
+        fs_table.count
+    }
+
+    public fun is_friendship(fs_table: &FriendshipTable, user_addr: address): bool {
+        table::contains(&fs_table.friendships, user_addr)
+    }
 
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
         let nickname = string::utf8(new_name);
@@ -263,11 +305,6 @@ module love::user {
         let avatar_u = &mut user.avatar_url;
 
         option::swap_or_fill(avatar_u, avatar_url);
-        // if (option::is_none(avatar_u)) {
-        //     option::fill(avatar_u, avatar_url);
-        // } else {
-        //     option::swap(avatar_u, avatar_url);
-        // }
     }
 
     public entry fun delete_user_avatar_url(user: &mut User) {
