@@ -62,6 +62,15 @@ module love::user {
         lists: Table<address, u64>,
     }
 
+    struct FriendMangerCap has key, store {
+        id: UID,
+        owner_addr: address,
+    }
+
+    struct BlacklistMangerCap has key, store {
+        id: UID,
+        owner_addr: address,
+    }
     // Platform has a share object: UserGlobalState, contains registered users, block list of users.
     // User will add to the global state when a user registered.
     struct UserGlobalState has key {
@@ -123,15 +132,6 @@ module love::user {
 
         let ilikes = vector_string(ilike);
 
-        // let idx = 0;
-        // let len = vector::length<vector<u8>>(&ilike);
-        // while (idx < len) {
-        //     vector::reverse(&mut ilike);
-
-        //     vector::push_back(&mut ilikes, string::utf8(vector::pop_back(&mut ilike)));
-        //     idx = idx + 1;
-        // };
-
         User {
             id: object::new(ctx),
             nickname: string::utf8(nickname),
@@ -166,19 +166,47 @@ module love::user {
         ctx: &mut TxContext
     ) {
         let user = new_user(nickname, age, avatar, avatar_url, gender, language, city, country, ilike, bio, ctx);
+        let user_id = object::id(&user);
         let wallet_addr = tx_context::sender(ctx);
         let created_at = tx_context::epoch(ctx);
 
         assert!(!table::contains(&state.registers, wallet_addr), EALREADY_EXISTS);
 
+        // transfer register user to platform 
         transfer::transfer( RegisteredUser {
             id: object::new(ctx),
-            user_id: object::id(&user),
+            user_id ,
             wallet_addr,
             created_at,
         }, Love_Address);
 
-        emit(UserRegisteredEvent { user_id: object::id(&user), wallet_addr, created_at });
+        emit(UserRegisteredEvent { user_id, wallet_addr, created_at });
+
+        // add user to global state registers
+        table::add(&mut state.registers, wallet_addr, RegisteredUser {
+            id: object::new(ctx),
+            user_id,
+            wallet_addr,
+            created_at,
+        });
+
+        // create friends table
+        let friend_table = FriendTable {
+            id: object::new(ctx),
+            friends: table::new(ctx),
+        };
+
+        transfer::transfer(friend_table, wallet_addr);
+        transfer::transfer(FriendMangerCap { id: object::new(ctx), owner_addr: wallet_addr }, wallet_addr);
+
+        // create a blacklist table
+        let blacklist_table = BlacklistTable {
+            id: object::new(ctx),
+            lists: table::new(ctx), 
+        };
+
+        transfer::transfer(blacklist_table, wallet_addr);
+        transfer::transfer(BlacklistMangerCap { id: object::new(ctx), owner_addr: wallet_addr }, wallet_addr);
 
         transfer::transfer(user, tx_context::sender(ctx));
 
@@ -218,6 +246,8 @@ module love::user {
     ) {
         create_user(state, nickname, age, avatar, option::none(), gender, language, city, country, ilike, bio, ctx);
     }
+
+    
 
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
         let nickname = string::utf8(new_name);
