@@ -61,6 +61,7 @@ module love::user {
     struct BlacklistTable has key, store {
         id: UID,
         lists: Table<address, u64>,
+        count: u64,
     }
 
     struct FriendshipMangerCap has key, store {
@@ -77,7 +78,7 @@ module love::user {
     struct UserGlobalState has key {
         id: UID,
         registers: Table<address, RegisteredUser>,
-        blocklists: Table<address, Table<u256, address>>    // 
+        blacklists: Table<address, Table<address, u64>>    // 
     }
 
     struct RegisteredUser has key, store {
@@ -95,6 +96,7 @@ module love::user {
     
     // Errors
     const EALREADY_EXISTS: u64 = 0;
+    const ENOT_FOUND: u64 = 1;
 
     fun init(ctx: &mut TxContext) {
         init_global_state(ctx);
@@ -110,7 +112,7 @@ module love::user {
         transfer::share_object(UserGlobalState {
             id: object::new(ctx),
             registers: table::new(ctx),
-            blocklists: table::new(ctx),
+            blacklists: table::new(ctx),
         })
     }
 
@@ -206,6 +208,7 @@ module love::user {
         let blacklist_table = BlacklistTable {
             id: object::new(ctx),
             lists: table::new(ctx), 
+            count: 0,
         };
 
         transfer::transfer(blacklist_table, wallet_addr);
@@ -283,12 +286,66 @@ module love::user {
         friendship_table.count = friendship_table.count - 1;
     }
 
+    // block user
+    public entry fun block_user(
+        state: &mut UserGlobalState, 
+        my_blacklist: &mut BlacklistTable, 
+        to_block_user_addr: address, 
+        ctx: &mut TxContext) {
+
+        let sender = tx_context::sender(ctx);
+
+        assert!(!table::contains(&my_blacklist.lists, to_block_user_addr), EALREADY_EXISTS);
+
+        if (!table::contains(&state.blacklists, sender)) {
+            table::add(&mut state.blacklists, sender, table::new(ctx));
+        };
+
+        let state_blacklist: &mut Table<address, u64> = table::borrow_mut(&mut state.blacklists, sender);
+        // assert!(!table::contains(state_blacklist, to_block_user_addr), EALREADY_EXISTS);
+
+        let block_at = tx_context::epoch(ctx);
+
+        my_blacklist.count = my_blacklist.count + 1;
+       
+        table::add(&mut my_blacklist.lists, to_block_user_addr, block_at);
+
+        table::add(state_blacklist, to_block_user_addr, block_at);
+    }
+
+    public entry fun cancel_block_user(
+        state: &mut UserGlobalState, 
+        my_blacklist: &mut BlacklistTable, 
+        to_cancel_block_addr: address, 
+        ctx: &mut TxContext
+    ) {
+        let sender = tx_context::sender(ctx);
+
+        assert!(table::contains(&my_blacklist.lists, to_cancel_block_addr), ENOT_FOUND);
+
+        let blacklist = table::borrow_mut(&mut state.blacklists, sender);
+        assert!(table::contains(blacklist, to_cancel_block_addr), ENOT_FOUND);
+
+        table::remove(blacklist, to_cancel_block_addr);
+        table::remove(&mut my_blacklist.lists, to_cancel_block_addr);
+        my_blacklist.count = my_blacklist.count - 1;
+    }
+    
     public fun get_friendship_count(fs_table: &FriendshipTable): u64 {
         fs_table.count
     }
 
     public fun is_friendship(fs_table: &FriendshipTable, user_addr: address): bool {
         table::contains(&fs_table.friendships, user_addr)
+    }
+
+    
+    public fun get_block_user_count(blacklist: &BlacklistTable): u64 {
+        blacklist.count
+    }
+
+    public fun is_blocked(blacklist: &BlacklistTable, user_addr: address): bool {
+        table::contains(&blacklist.lists, user_addr)
     }
 
     public entry fun update_user_nickname(user: &mut User, new_name: vector<u8>) {
