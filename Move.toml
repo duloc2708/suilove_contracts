@@ -4,8 +4,8 @@ version = "0.0.1"
 
 [dependencies]
 # Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework", rev = "devnet" }
-Sui = { local = "../../mystenlabs/sui/crates/sui-framework" }
+Sui = { local = "../sui/crates/sui-framework" }
 
 [addresses]
 love =  "0x0"
-sui =  "0000000000000000000000000000000000000002"
+sui =  "0xe68f404e8e8f40b9482ec1a017e16ef092ec6875"
