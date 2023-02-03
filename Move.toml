@@ -8,4 +8,4 @@ Sui = { local = "../sui/crates/sui-framework" }
 
 [addresses]
 love =  "0x0"
-sui =  "0xe68f404e8e8f40b9482ec1a017e16ef092ec6875"
+sui =  "0000000000000000000000000000000000000002"
